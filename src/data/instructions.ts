@@ -1,0 +1,104 @@
+import type { Family, Instruction, Processor } from '../types';
+
+const rows: Instruction[] = [];
+function add(processor: Processor, family: Family, names: string, syntax: string, description: string, flags: string, example: string, simulated = true) {
+  for (const mnemonic of names.split(' ')) rows.push({ processor, family, mnemonic, syntax: syntax.replaceAll('$', mnemonic), description, flags, example: example.replaceAll('$', mnemonic), simulated });
+}
+const p85 = '8085';
+add(p85, 'Data transfer', 'MOV', '$ dst, src', 'Copy an 8-bit register or HL-indirect memory byte. Both operands cannot be M.', 'None', 'MOV A, B');
+add(p85, 'Data transfer', 'MVI', '$ r, byte', 'Load immediate 8-bit data into a register or M.', 'None', 'MVI A, 2AH');
+add(p85, 'Data transfer', 'LXI', '$ pair, word', 'Load BC, DE, HL, or SP with immediate 16-bit data; pair operands are B, D, H, SP.', 'None', 'LXI H, 2400H');
+add(p85, 'Data transfer', 'LDA', '$ address', 'Load A from a direct memory address.', 'None', 'LDA 2400H');
+add(p85, 'Data transfer', 'STA', '$ address', 'Store A at a direct memory address.', 'None', 'STA 3000H');
+add(p85, 'Data transfer', 'LHLD', '$ address', 'Load L from address and H from address+1.', 'None', 'LHLD 2400H');
+add(p85, 'Data transfer', 'SHLD', '$ address', 'Store L at address and H at address+1.', 'None', 'SHLD 3000H');
+add(p85, 'Data transfer', 'LDAX', '$ B | D', 'Load A through BC or DE; HL is accessed using MOV A, M.', 'None', 'LDAX D');
+add(p85, 'Data transfer', 'STAX', '$ B | D', 'Store A through BC or DE.', 'None', 'STAX D');
+add(p85, 'Data transfer', 'XCHG', '$', 'Exchange HL and DE.', 'None', 'XCHG');
+add(p85, 'Arithmetic', 'ADD ADC', '$ r | M', 'Add an 8-bit operand to A. ADC also includes the incoming carry.', 'S, Z, AC, P, CY', '$ B');
+add(p85, 'Arithmetic', 'ADI ACI', '$ byte', 'Add immediate data to A. ACI also includes incoming carry.', 'S, Z, AC, P, CY', '$ 05H');
+add(p85, 'Arithmetic', 'SUB SBB', '$ r | M', 'Subtract an 8-bit operand from A. SBB also subtracts incoming CY (borrow).', 'S, Z, AC, P, CY', '$ C');
+add(p85, 'Arithmetic', 'SUI SBI', '$ byte', 'Subtract immediate data from A. SBI also subtracts incoming borrow.', 'S, Z, AC, P, CY', '$ 01H');
+add(p85, 'Arithmetic', 'INR DCR', '$ r | M', 'Increment/decrement an 8-bit operand by one. Carry is preserved.', 'S, Z, AC, P; CY unchanged', '$ B');
+add(p85, 'Arithmetic', 'INX DCX', '$ pair', 'Increment/decrement BC, DE, HL, or SP. No flags change.', 'None', '$ H');
+add(p85, 'Arithmetic', 'DAD', '$ pair', 'Add a 16-bit pair to HL; result goes to HL.', 'CY only', 'DAD D');
+add(p85, 'Arithmetic', 'DAA', '$', 'Adjust A after packed BCD addition using A, AC, and CY.', 'S, Z, AC, P, CY', 'DAA');
+add(p85, 'Logical & bit', 'ANA ORA XRA', '$ r | M', 'Bitwise AND / OR / XOR of A and operand. AND sets AC; OR/XOR clear AC. All clear CY.', 'S, Z, P; AC and CY as described', '$ B');
+add(p85, 'Logical & bit', 'ANI ORI XRI', '$ byte', 'Immediate AND / OR / XOR. ANI is useful for extracting bits.', 'S, Z, P; ANI sets AC; others clear AC; CY=0', '$ 0FH');
+add(p85, 'Logical & bit', 'CMP', '$ r | M', 'Compare by subtracting for flags without changing A.', 'S, Z, AC, P, CY', 'CMP B');
+add(p85, 'Logical & bit', 'CPI', '$ byte', 'Compare an immediate byte against A without changing A.', 'S, Z, AC, P, CY', 'CPI 01H');
+add(p85, 'Logical & bit', 'RLC RRC', '$', 'Circular accumulator rotation left/right. Outgoing bit goes into CY and wraps into A.', 'CY only', '$');
+add(p85, 'Logical & bit', 'RAL RAR', '$', 'Rotate A left/right through CY.', 'CY only', '$');
+add(p85, 'Logical & bit', 'CMA', '$', 'Complement all bits of A.', 'None', 'CMA');
+add(p85, 'Logical & bit', 'CMC STC', '$', 'Complement / set the carry flag.', 'CY only', '$');
+add(p85, 'Branching', 'JMP', '$ label', 'Unconditional jump.', 'None', 'JMP AGAIN');
+for (const [names, desc] of [['JZ JNZ', 'zero / not zero'], ['JC JNC', 'carry / no carry'], ['JM JP', 'minus / plus (S=1 / S=0)'], ['JPE JPO', 'even / odd parity']]) add(p85, 'Branching', names, '$ label', `Conditional jump on ${desc}.`, 'Read only', '$ AGAIN');
+add(p85, 'Branching', 'PCHL', '$', 'Copy HL into PC. In this teaching simulator, target is a logical instruction index.', 'None', 'PCHL');
+add(p85, 'Stack & procedures', 'CALL', '$ label', 'Push a return address and jump to a subroutine.', 'None', 'CALL WORK');
+for (const [names, desc] of [['CZ CNZ', 'zero / not zero'], ['CC CNC', 'carry / no carry'], ['CM CP', 'minus / plus'], ['CPE CPO', 'even / odd parity']]) add(p85, 'Stack & procedures', names, '$ label', `Conditional call on ${desc}.`, 'Read only', '$ WORK');
+add(p85, 'Stack & procedures', 'RET', '$', 'Pop the return address and return to the caller.', 'None', 'RET');
+for (const [names, desc] of [['RZ RNZ', 'zero / not zero'], ['RC RNC', 'carry / no carry'], ['RM RP', 'minus / plus'], ['RPE RPO', 'even / odd parity']]) add(p85, 'Stack & procedures', names, '$', `Conditional return on ${desc}.`, 'Read only', '$');
+add(p85, 'Stack & procedures', 'PUSH POP', '$ pair | PSW', 'Push / pop BC, DE, HL, or A+flags (PSW) on the descending stack.', 'POP PSW restores flags; otherwise none', '$ H');
+add(p85, 'Stack & procedures', 'XTHL', '$', 'Exchange HL with the two bytes at the top of the stack.', 'None', 'XTHL');
+add(p85, 'Stack & procedures', 'SPHL', '$', 'Copy HL into SP.', 'None', 'SPHL');
+add(p85, 'Stack & procedures', 'RST', '$ 0..7', 'One-byte call to vector 8×n. Hardware vectors are not emulated here.', 'None', 'RST 1', false);
+add(p85, 'I/O & control', 'IN OUT', '$ port', 'Read input port into A / write A to output port. Unconfigured simulated inputs are zero.', 'None', '$ 02H');
+add(p85, 'I/O & control', 'NOP HLT', '$', 'No operation / halt. HLT stops the browser run.', 'None', '$');
+add(p85, 'I/O & control', 'EI DI', '$', 'Enable / disable maskable interrupts. External interrupts and EI timing are not emulated.', 'None', '$', false);
+add(p85, 'I/O & control', 'RIM SIM', '$', 'Read interrupt masks/status into A / set masks and serial control from A. Hardware-only in this course.', 'None', '$', false);
+
+const p86 = '8086';
+add(p86, 'Data transfer', 'MOV', '$ dst, src', 'Copy equal-size operands. No memory-to-memory form, immediate-to-segment form, or write to CS.', 'None', 'MOV AX, 1234H');
+add(p86, 'Data transfer', 'XCHG', '$ dst, src', 'Exchange equal-size general registers or a register and memory.', 'None', 'XCHG AX, BX');
+add(p86, 'Data transfer', 'LEA', '$ reg16, memory', 'Load the effective offset, not the contents of memory.', 'None', 'LEA BX, [SI+4]');
+add(p86, 'Data transfer', 'LDS LES', '$ reg16, memory', 'Load a register and DS / ES from a four-byte far pointer in memory.', 'None', '$ BX, [2400H]', false);
+add(p86, 'Data transfer', 'XLAT', '$', 'Translate AL through the table at DS:[BX+AL].', 'None', 'XLAT');
+add(p86, 'Data transfer', 'LAHF SAHF', '$', 'Load AH from selected status flags / restore SF,ZF,AF,PF,CF from AH.', 'LAHF: none; SAHF restores selected status', '$');
+add(p86, 'Data transfer', 'CBW CWD', '$', 'Sign-extend AL into AX / AX into DX:AX.', 'None', '$');
+add(p86, 'Arithmetic', 'ADD ADC SUB SBB', '$ dst, src', 'Add / add with carry / subtract / subtract with borrow. Both operands cannot be memory.', 'CF,PF,AF,ZF,SF,OF', '$ AX, BX');
+add(p86, 'Arithmetic', 'INC DEC', '$ operand', 'Increment / decrement, preserving CF.', 'PF,AF,ZF,SF,OF', '$ AX');
+add(p86, 'Arithmetic', 'NEG', '$ operand', 'Two’s-complement negation. CF is set unless the original operand was zero.', 'CF,PF,AF,ZF,SF,OF', 'NEG AX');
+add(p86, 'Arithmetic', 'CMP', '$ left, right', 'Set subtraction flags without storing the result.', 'CF,PF,AF,ZF,SF,OF', 'CMP AX, BX');
+add(p86, 'Arithmetic', 'MUL IMUL', '$ operand', 'Unsigned / signed one-operand multiply: byte AL→AX, word AX→DX:AX.', 'CF/OF indicate whether high half is significant; others undefined', '$ BX');
+add(p86, 'Arithmetic', 'DIV IDIV', '$ operand', 'Unsigned / signed divide: AX→AL quotient, AH remainder; DX:AX→AX quotient, DX remainder.', 'Undefined', '$ BX', false);
+add(p86, 'Arithmetic', 'DAA DAS', '$', 'Adjust AL after packed-BCD addition / subtraction.', 'CF,AF,SF,ZF,PF; OF undefined', '$', false);
+add(p86, 'Arithmetic', 'AAA AAS', '$', 'Adjust unpacked decimal digits in AX after addition / subtraction.', 'AF,CF; other status flags undefined', '$', false);
+add(p86, 'Arithmetic', 'AAM AAD', '$', 'Split AL into decimal digits / combine AH:AL digits before division.', 'SF,ZF,PF; CF,AF,OF undefined', '$', false);
+add(p86, 'Logical & bit', 'AND OR XOR', '$ dst, src', 'Bitwise AND / OR / XOR. CF and OF cleared; AF undefined.', 'SF,ZF,PF; CF=OF=0; AF undefined', '$ AL, 0FH');
+add(p86, 'Logical & bit', 'TEST', '$ left, right', 'AND for flags without storing the result.', 'SF,ZF,PF; CF=OF=0; AF undefined', 'TEST AL, 1');
+add(p86, 'Logical & bit', 'NOT', '$ operand', 'Invert all operand bits.', 'None', 'NOT AX');
+add(p86, 'Logical & bit', 'SHL SAL SHR SAR', '$ operand, 1 | CL', 'Shift left / logical right / arithmetic right. Original 8086 count must be 1 or CL.', 'CF,SF,ZF,PF; OF defined for count 1; AF undefined', '$ AL, 1');
+add(p86, 'Logical & bit', 'ROL ROR RCL RCR', '$ operand, 1 | CL', 'Rotate left/right, either circular or through CF.', 'CF; OF defined only for count 1', '$ AL, 1');
+add(p86, 'Branching', 'JMP', '$ label', 'Unconditional near label jump supported here; far/indirect machine-code transfers are reference-only.', 'None', 'JMP AGAIN');
+for (const [names, desc] of [
+  ['JE JZ', 'ZF=1 (equal)'], ['JNE JNZ', 'ZF=0 (not equal)'], ['JB JC JNAE', 'CF=1 (unsigned below)'], ['JAE JNB JNC', 'CF=0 (unsigned above/equal)'],
+  ['JA JNBE', 'CF=0 and ZF=0 (unsigned above)'], ['JBE JNA', 'CF=1 or ZF=1 (unsigned below/equal)'], ['JL JNGE', 'SF≠OF (signed less)'], ['JGE JNL', 'SF=OF (signed greater/equal)'],
+  ['JG JNLE', 'ZF=0 and SF=OF (signed greater)'], ['JLE JNG', 'ZF=1 or SF≠OF (signed less/equal)'], ['JO JNO', 'OF=1 / OF=0'], ['JS JNS', 'SF=1 / SF=0'], ['JP JPE JNP JPO', 'even / odd low-byte bit parity'],
+]) add(p86, 'Branching', names, '$ label', `Conditional short jump: ${desc}.`, 'Read only', '$ AGAIN');
+add(p86, 'Branching', 'JCXZ', '$ label', 'Jump if CX is zero; does not decrement it.', 'None', 'JCXZ DONE');
+add(p86, 'Branching', 'LOOP LOOPE LOOPZ LOOPNE LOOPNZ', '$ label', 'Decrement CX; jump if nonzero. E/Z also needs ZF=1, NE/NZ needs ZF=0.', 'None', '$ AGAIN');
+add(p86, 'Stack & procedures', 'PUSH POP', '$ reg16 | memory16', 'Push / pop a word through SS:SP. Original 8086 has no immediate PUSH.', 'None', '$ AX');
+add(p86, 'Stack & procedures', 'PUSHF POPF', '$', 'Push / pop the flags word.', 'POPF restores flags; PUSHF unchanged', '$');
+add(p86, 'Stack & procedures', 'CALL', '$ target', 'Near label CALL supported. Far calls and indirect transfers are not simulated.', 'None', 'CALL WORK');
+add(p86, 'Stack & procedures', 'RET', '$ [bytes]', 'Near return. Plain RET is supported; RET with argument cleanup is not simulated.', 'None', 'RET');
+add(p86, 'Stack & procedures', 'RETF', '$ [bytes]', 'Far return, restoring IP and CS, optionally discarding argument bytes.', 'None', 'RETF', false);
+add(p86, 'Stack & procedures', 'INT', '$ vector', 'Invoke a software interrupt; the real environment supplies the handler.', 'IF,TF cleared after saving FLAGS', 'INT 21H', false);
+add(p86, 'Stack & procedures', 'INTO', '$', 'Invoke interrupt 4 only when OF is set.', 'IF,TF cleared when taken', 'INTO', false);
+add(p86, 'Stack & procedures', 'IRET', '$', 'Return from an interrupt by restoring IP, CS, and FLAGS.', 'IRET restores flags', 'IRET', false);
+add(p86, 'Strings', 'MOVSB MOVSW', '$', 'Copy DS:SI to ES:DI, adjusting SI and DI according to DF.', 'None', 'REP $');
+add(p86, 'Strings', 'LODSB LODSW', '$', 'Load DS:SI into AL / AX, adjusting SI.', 'None', '$');
+add(p86, 'Strings', 'STOSB STOSW', '$', 'Store AL / AX into ES:DI, adjusting DI.', 'None', 'REP $');
+add(p86, 'Strings', 'CMPSB CMPSW', '$', 'Compare DS:SI minus ES:DI and advance both indices.', 'CF,PF,AF,ZF,SF,OF', 'REPE $', false);
+add(p86, 'Strings', 'SCASB SCASW', '$', 'Compare AL / AX minus ES:DI and advance DI.', 'CF,PF,AF,ZF,SF,OF', 'REPNE $', false);
+add(p86, 'Strings', 'REP', '$ string-op', 'Repeat a supported MOVS/LODS/STOS operation while CX≠0; decrement CX each iteration.', 'None', 'REP MOVSB');
+add(p86, 'Strings', 'REPE REPZ REPNE REPNZ', '$ compare-or-scan', 'Repeat comparison/scanning while CX≠0 and ZF meets the equality / inequality condition.', 'Set by the repeated instruction', '$ CMPSB', false);
+add(p86, 'I/O & control', 'IN OUT', '$ operands', 'Input/output through AL or AX and an 8-bit immediate port or DX. Simulated input defaults to zero.', 'None', 'OUT 02H, AL');
+add(p86, 'I/O & control', 'CLC STC CMC', '$', 'Clear / set / complement CF.', 'CF only', '$');
+add(p86, 'I/O & control', 'CLD STD', '$', 'Clear / set DF for forward / backward string traversal.', 'DF only', '$');
+add(p86, 'I/O & control', 'CLI STI', '$', 'Clear / set IF. Interrupt timing and external interrupts are not emulated.', 'IF only', '$', false);
+add(p86, 'I/O & control', 'NOP HLT', '$', 'No operation / halt the teaching run.', 'None', '$');
+add(p86, 'I/O & control', 'WAIT LOCK ESC', '$', 'Coprocessor synchronization / bus-lock prefix / coprocessor escape. Hardware-specific.', 'None', '$', false);
+add(p86, 'I/O & control', 'CS: DS: SS: ES:', '$ memory-operand', 'Segment-override prefixes select a different segment for an eligible memory operand.', 'None', 'MOV AL, ES:[BX]');
+
+export const instructions = rows;
+export const families: Family[] = ['Data transfer', 'Arithmetic', 'Logical & bit', 'Branching', 'Stack & procedures', 'Strings', 'I/O & control'];
